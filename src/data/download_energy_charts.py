@@ -28,9 +28,10 @@ COUNTRIES = ["hu", "de", "at", "fr", "es", "pl", "dk"]
 # Denmark has two zones (DK1 West, DK2 East), averaged later in cleaning.
 PRICE_ZONES = ["HU", "DE-LU", "AT", "FR", "ES", "PL", "DK1", "DK2"]
 
-PAUSE_SECONDS = 2   # be polite to a free API
+PAUSE_SECONDS = 5   # be polite to a free API
 TIMEOUT_SECONDS = 120
-MAX_RETRIES = 3
+MAX_RETRIES = 5
+RATE_LIMIT_WAIT = 60  # seconds to wait after a 429 if the API gives no Retry-After
 
 
 def fetch(endpoint, params):
@@ -38,6 +39,13 @@ def fetch(endpoint, params):
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             r = requests.get(f"{BASE_URL}/{endpoint}", params=params, timeout=TIMEOUT_SECONDS)
+            if r.status_code == 429:
+                # Rate limited: wait as long as the API asks, then retry
+                retry_after = r.headers.get("Retry-After", "")
+                wait = int(retry_after) if retry_after.isdigit() else RATE_LIMIT_WAIT * attempt
+                print(f"    rate limited, waiting {wait}s (attempt {attempt})")
+                time.sleep(wait)
+                continue
             r.raise_for_status()
             return r.json()
         except requests.RequestException as e:

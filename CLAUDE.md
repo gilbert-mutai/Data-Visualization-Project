@@ -56,7 +56,7 @@ Raw data layout: `data/raw/<source>/...` (e.g. `data/raw/energy_charts/`, `data/
 
 ## Known data prep work
 - Timestamps: convert to UTC, handle DST transitions (missing/duplicate hours), align to local time only for hour-of-day analysis.
-- Resolution: Energy-Charts generation/load is 15-minute, day-ahead prices are hourly until 1 Oct 2025 and 15-minute after. Resample everything to hourly (mean of MW values).
+- Resolution: Energy-Charts generation/load is mixed (DE, AT, HU 15-minute; DK, FR hourly; ES 15-minute from 2023, PL from 2025), day-ahead prices are hourly until 1 Oct 2025 and 15-minute after. Resample everything to hourly (mean of MW values).
 - Bidding zones vs countries: e.g. DE-LU is one zone, Denmark has DK1/DK2, Italy has several zones. Decide a mapping and document it.
 - Units: MW (power) vs MWh (energy); aggregate correctly when summing over time.
 - Gaps and outliers in load/generation series; negative prices are real, not errors.

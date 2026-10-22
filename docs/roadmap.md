@@ -17,10 +17,10 @@ Deadline / presentation date: _TBD_
 - [ ] **A** Register for an ENTSO-E API token (backup source)
 
 ## Phase 1: Data contract and acquisition
-- [ ] **A** Test Energy-Charts API endpoints (load, generation by source, day-ahead prices) for one country
+- [x] **A** Test Energy-Charts API endpoints (load, generation by source, day-ahead prices) for one country
 - [ ] **A** Decide bidding zone to country mapping (DE-LU, DK1/DK2) and write it down
 - [ ] **All** Write `docs/data_contract.md`: processed file names, columns, dtypes, units, time zone
-- [ ] **A** Download script for Energy-Charts -> `data/raw/energy_charts/`
+- [x] **A** Download script for Energy-Charts -> `data/raw/energy_charts/`
 - [ ] **A** Download script for Ember yearly/monthly data -> `data/raw/ember/`
 - [ ] **A** Download script for Eurostat population -> `data/raw/eurostat/`
 - [x] **A** Move the existing Eurostat renewables file into `data/raw/eurostat/`
