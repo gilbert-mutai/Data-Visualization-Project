@@ -9,8 +9,8 @@ Deadline / presentation date: _TBD_
 
 ## Phase 0: Decisions and setup
 - [ ] **All** Assign names to roles A, B, C
-- [ ] **All** Confirm countries (proposed: HU, DE, AT, FR, ES, PL, DK)
-- [ ] **All** Confirm years (2 to 3 recent full years, e.g. 2022 to 2024)
+- [x] **All** Confirm countries: HU, DE, AT, FR, ES, PL, DK
+- [x] **All** Confirm years: 2022 to 2025
 - [ ] **All** Finalise the analytical questions (draft in `CLAUDE.md`)
 - [ ] **All** Everyone sets up the environment: `python -m venv venv`, `pip install -r requirements.txt`
 - [ ] **C** Create GitHub Project board and Phase 1 issues

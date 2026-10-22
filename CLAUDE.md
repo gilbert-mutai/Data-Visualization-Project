@@ -50,13 +50,13 @@ E. **Electricity prices**: hourly/daily trends, country comparison, relationship
 | Ember | Monthly/yearly generation, demand, emissions per country | Free CSV, CC BY 4.0 |
 | Eurostat | Population per country (per-capita figures) | Free API/CSV |
 
-Scope: 6 to 8 countries (proposed: Hungary, Germany, Austria, France, Spain, Poland, Denmark; confirm with team), 2 to 3 recent full years.
+Scope (decided 2026-10-22): 7 countries, Hungary (HU), Germany (DE), Austria (AT), France (FR), Spain (ES), Poland (PL), Denmark (DK); 4 full years, 2022 to 2025 (energy crisis, recovery, solar growth). Denmark has two price zones (DK1 West, DK2 East): use the simple hourly mean of DK1 and DK2 prices as the Denmark price (document in prep notes).
 
 Raw data layout: `data/raw/<source>/...` (e.g. `data/raw/energy_charts/`, `data/raw/ember/`, `data/raw/eurostat/`). Download scripts in `src/data/` so raw data is reproducible.
 
 ## Known data prep work
 - Timestamps: convert to UTC, handle DST transitions (missing/duplicate hours), align to local time only for hour-of-day analysis.
-- Resolution: some series are 15-minute, others hourly; resample to a common resolution. Check price resolution changes over time.
+- Resolution: Energy-Charts generation/load is 15-minute, day-ahead prices are hourly until 1 Oct 2025 and 15-minute after. Resample everything to hourly (mean of MW values).
 - Bidding zones vs countries: e.g. DE-LU is one zone, Denmark has DK1/DK2, Italy has several zones. Decide a mapping and document it.
 - Units: MW (power) vs MWh (energy); aggregate correctly when summing over time.
 - Gaps and outliers in load/generation series; negative prices are real, not errors.
@@ -104,7 +104,7 @@ To avoid B and C waiting on A:
 2. A delivers a rough sample of processed data early so B and C can build against it.
 
 ## Next steps
-1. Confirm countries and years with the team.
+1. ~~Confirm countries and years with the team.~~ Done: 7 countries, 2022 to 2025.
 2. Test Energy-Charts API endpoints; register for ENTSO-E token in parallel.
 3. Write `docs/data_contract.md`.
 4. Write download scripts and the cleaning pipeline.
