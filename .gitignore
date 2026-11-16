@@ -27,3 +27,8 @@ data/processed/*
 
 # Generated chart gallery: rebuild with python src/viz/gallery.py
 reports/figures/chart_gallery.html
+
+# Internal planning notes: kept locally, not published
+CLAUDE.md
+docs/project_brief.md
+docs/roadmap.md
