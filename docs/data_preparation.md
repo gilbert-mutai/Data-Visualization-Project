@@ -1,51 +1,42 @@
 # Data Preparation
 
-From raw downloads to the dashboard dataset. Columns are described in [data_contract.md](data_contract.md).
+From the Eurostat file to the dashboard. Columns are described in [data_contract.md](data_contract.md).
 
 ```
-data/raw/energy_charts/   60 JSON files (7 countries + 8 price zones × 4 years)
-  │  src/data/clean_energy_charts.py
-data/interim/             hourly generation and prices
-  │  src/features/build_features.py
-data/processed/electricity_hourly.parquet   245,448 rows (7 countries × 35,064 hours)
+data/raw/eurostat/nrg_ind_ren$defaultview_linear_2_0.csv      Eurostat download
+  │  src/data/clean_eurostat_renewables.py
+data/processed/renewable_energy_shares.parquet                368 rows
+  │  dashboard: derived metrics per country and year
 ```
+
+If the processed file is missing (e.g. on Streamlit Cloud), the dashboard cleans the raw file the same way. It never falls back to generated data.
 
 ## Cleaning
 
 | Step | What | Why |
 |---|---|---|
-| Timestamps | Unix seconds → UTC | No daylight-saving gaps or duplicates |
-| Resolution | 15-minute and hourly data → hourly means | Sources mix both; prices switched to 15 min in Oct 2025. For MW, the hourly mean equals MWh |
-| Calendar | Every country reindexed to all 35,064 hours | Missing hours become explicit |
-| Short gaps (≤ 3 h) | Linear interpolation (206 values) | Power changes smoothly |
-| Long gaps in a source | Set to 0 | Empty means no production, e.g. German nuclear after the 15 April 2023 shutdown |
-| Long gaps in load | Left missing, flagged (54 hours) | Mostly the Iberian blackout, 28 April 2025; filling would invent demand |
-| Price zones | DE-LU for Germany; mean of DK1 and DK2 for Denmark | Prices are set per bidding zone |
-| Negative prices | Kept | Real market outcomes, central to question 4 |
+| Columns | Keep country, code, year, value, flag; rename | Raw file has 19 mostly technical columns |
+| Missing values | Drop rows without a value (none in the current file) | Only measured values are shown |
+| Types | Year as integer, share rounded to 3 decimals | Consistent sorting and display |
+| Flags | `p` → provisional, empty → final | Eurostat marks 2025 as provisional (30 countries) |
+| Aggregates | EU-27 and euro area marked `is_aggregate` | Kept as a benchmark, not ranked as a country |
+| Names | Footnote markers (`*`) removed | Clean labels in charts |
 
-Known limitation: French offshore wind is empty until May 2023 and set to 0, a slight undercount (under 1% of French generation).
+## Derived Metrics
 
-## Derived Variables
+Computed in the dashboard for every country and year:
 
-- **Generation categories:** 21 source series grouped into 12 (e.g. lignite + hard coal = coal). Pumped storage and batteries are storage, not renewable.
-- **Renewable share** = renewables / load. Within 0.2 to 1.7 points of Energy-Charts' own figure; we count all waste as non-renewable.
-- **Residual load** = load − solar − wind, the basis of the duck curve.
-- **Calendar fields** in local time: hour, weekday, month, season, peak (weekdays 08:00 to 20:00).
+| Metric | Definition |
+|---|---|
+| Year-on-year change | Share minus previous year's share (percentage points) |
+| Change since base | Share minus the share in 2016 |
+| Rank | Position among all countries in that year |
+| Gap to EU-27 | Share minus the EU-27 average |
 
 ## Validation
 
-14 automated checks (`pytest tests/`): complete hourly calendar, no duplicates, no missing or negative generation, missing load only where flagged, and annual consumption within the range of national statistics:
+Values checked against the Eurostat source, e.g. Hungary 2024 = 18.3%, EU-27 2024 = 25.2%.
 
-| TWh | 2022 | 2023 | 2024 | 2025 |
-|---|---|---|---|---|
-| Germany | 482 | 458 | 466 | 466 |
-| France | 444 | 426 | 430 | 435 |
-| Spain | 236 | 229 | 232 | 238 |
-| Poland | 172 | 166 | 164 | 158 |
-| Austria | 62 | 58 | 59 | 59 |
-| Hungary | 43 | 42 | 43 | 43 |
-| Denmark | 34 | 35 | 37 | 38 |
+## Earlier Phase: Hourly Electricity Data
 
-## Eurostat Renewables
-
-`src/data/clean_eurostat_renewables.py`: annual renewable share of all energy (not only electricity), used as context. Columns renamed, flags labelled (`p` = provisional), EU aggregates marked, saved as Parquet.
+The repository also contains a pipeline for hourly electricity data from the Energy-Charts API (`src/data/clean_energy_charts.py`, `src/features/build_features.py`) with 14 tests in `tests/`. It is not used by the current dashboard.

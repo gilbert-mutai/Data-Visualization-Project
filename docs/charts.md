@@ -1,78 +1,29 @@
 # Chart Guide
 
-How to use the chart functions in `src/viz/` in the Panel dashboard.
+The charts are Plotly modules in `src/viz/`. Each takes the Eurostat table (see [data_contract.md](data_contract.md)) and returns a Plotly figure; `dashboard/app.py` places them in the views.
 
-## Quick Start
+| Module | Function | Chart | Dashboard view |
+|---|---|---|---|
+| `choropleth_map.py` | `create_choropleth_map(df)` | Map of Europe with a year slider; `enrich_country_metrics(df)` adds the derived metrics | Overview |
+| `multitrend list chart.py` | `create_multitrend(df)` | One line per country with a ranked legend; click to hide, double-click to isolate | Trends |
+| `Outlier box plot.py` | `create_outlier_box(df)` | Box per year; outliers (1.5 × IQR rule) labelled by country | Spread & Outliers |
+| `Heatmap matrix.py` | `create_heatmap(df)` | Countries × years; share, year-on-year change or change since 2016 | Matrix |
 
-```python
-import sys
-from pathlib import Path
+The ranking bars (Overview) and the dumbbell chart (Movers) are built directly in `dashboard/app.py`.
 
-import holoviews as hv
-import pandas as pd
-import panel as pn
+## Viewing a Single Chart
 
-ROOT = Path(__file__).resolve().parents[1]      # repo root, from dashboard/app.py
-sys.path.insert(0, str(ROOT))
-from src.viz import countries, demand, prices, renewables, style
+Each module also runs on its own and opens the chart in the browser:
 
-pn.extension(theme="dark")
-hv.extension("bokeh")
-style.apply()
-
-df = pd.read_parquet(ROOT / "data/processed/electricity_hourly.parquet")
-
-country = pn.widgets.MultiChoice(name="Countries", options=style.COUNTRY_ORDER, value=["HU"])
-years = pn.widgets.IntRangeSlider(name="Years", start=2022, end=2025, value=(2022, 2025))
-
-def selection(codes, yrs):
-    return df[df["country"].isin(codes) & df["year"].between(*yrs)]
-
-heatmap = pn.bind(lambda c, y: demand.hour_weekday_heatmap(selection(c, y)), country, years)
-pn.Column(pn.Row(country, years), heatmap).servable()
+```bash
+python src/viz/choropleth_map.py
+python "src/viz/Heatmap matrix.py"
 ```
 
-Run with `panel serve dashboard/app.py --show`. To view one chart alone: `python src/viz/preview.py` lists the names, `python src/viz/preview.py country_map` opens one.
+## Interaction
 
-## Conventions
-
-- Every function takes the **already filtered** hourly DataFrame and returns a HoloViews object with hover, zoom and pan.
-- `title=` overrides the default title.
-- `relative=` (load charts): GW for one country, % of each country's average for several.
-- `*_data` functions return the table behind a chart, e.g. for KPI cards.
-- Charts showing different selections on one page need `.opts(shared_axes=False)`.
-
-## Functions
-
-| Module | Function | Shows |
-|---|---|---|
-| `demand` | `hour_weekday_heatmap` | Mean load per weekday × hour |
-| | `calendar_heatmap` | One cell per day, one row per year |
-| | `seasonal_profile` | Average day per season |
-| `countries` | `country_map` | Choropleth of a metric |
-| | `country_ranking` | Ranked dots; `compare_years=True` for a dumbbell |
-| | `country_mix` | Generation mix per country (100% bars) |
-| | `country_metrics` | Table per country, for KPI cards |
-| `renewables` | `generation_mix` | Stacked generation with load; `as_share=True` for % |
-| | `renewable_share_heatmap` | Country × month renewable share |
-| | `daily_coverage` | Duck curve (best with a season filter) |
-| | `coverage_duration` | How often renewables cover X% of demand |
-| `prices` | `price_distribution` | Violins per country, or `by="year"` |
-| | `price_duration_curve` | Prices sorted high to low |
-| | `share_price` | Hexbin + median price; `x="residual_load"` for merit order |
-| | `negative_price_heatmap` | Negative-price share, `by="hour"` or `by="month"` |
-
-Metrics for `country_map` and `country_ranking`: `consumption_twh`, `mean_load_gw`, `peak_load_gw`, `renewable_share`, `mean_price`, `negative_pct`, and `per_capita_mwh` (needs `population=`).
-
-## Linked Selection
-
-The charts aggregate the data, so brushing needs a sampled hourly scatter that filters the others:
-
-```python
-sample = df.sample(20_000, random_state=0)
-scatter = hv.Points(sample, ["renewable_share_load_pct", "price_eur_mwh"]).opts(
-    size=3, alpha=0.3, tools=["box_select", "lasso_select"])
-ls = hv.link_selections.instance()
-linked = ls(scatter)
-mix = pn.bind(lambda _: renewables.generation_mix(ls.filter(df)), ls.param.selection_expr)
-```
+- **Country selection** in the sidebar applies to every view.
+- **Year slider** and **metric selector** (share, year-on-year change, change since 2016, gap to EU-27) drive the map and ranking.
+- **Policy target** slider adds a target line to the ranking and trend charts and counts the countries above it.
+- **Hover** on any chart for exact values; **zoom and pan** via the Plotly toolbar.
+- **Export CSV** in the Data view downloads the filtered table.
