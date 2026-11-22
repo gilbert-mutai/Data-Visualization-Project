@@ -270,63 +270,17 @@ NON_REPORTING_EUROPE = [
 # ----------------------------------------------------------------------------
 # Data Loading & Enrichment
 # ----------------------------------------------------------------------------
-def find_csv():
-    search_dirs = [
-        HERE,
-        PROJECT_ROOT,
-        os.path.join(PROJECT_ROOT, "data"),
-        os.path.join(PROJECT_ROOT, "data", "raw"),
-        os.path.join(PROJECT_ROOT, "data", "processed"),
-    ]
-    for d in search_dirs:
-        if not os.path.isdir(d):
-            continue
-        for fname in os.listdir(d):
-            if fname.lower().endswith(".csv") and "renewable" in fname.lower():
-                return os.path.join(d, fname)
-    return None
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from src.data import clean_eurostat_renewables  # noqa: E402
 
 def load_dataset():
-    if hasattr(cmap, "load_data"):
-        try:
-            df_loaded = cmap.load_data(extra_roots=[HERE, PROJECT_ROOT, os.path.join(PROJECT_ROOT, "data")])
-            return df_loaded, False
-        except Exception:
-            pass
-    csv_path = find_csv()
-    if csv_path:
-        df_loaded = pd.read_csv(csv_path)
-        if "is_aggregate" not in df_loaded.columns:
-            df_loaded["is_aggregate"] = df_loaded["geo_code"].astype(str).str.startswith(("EU", "EA"))
-        return df_loaded, False
-    rng = np.random.default_rng(7)
-    countries = [
-        ("Sweden", "SE"), ("Finland", "FI"), ("Latvia", "LV"), ("Denmark", "DK"),
-        ("Austria", "AT"), ("Portugal", "PT"), ("Croatia", "HR"), ("Lithuania", "LT"),
-        ("Estonia", "EE"), ("Romania", "RO"), ("Spain", "ES"), ("Greece", "EL"),
-        ("Slovenia", "SI"), ("Bulgaria", "BG"), ("Germany", "DE"), ("Italy", "IT"),
-        ("France", "FR"), ("Slovakia", "SK"), ("Czechia", "CZ"), ("Poland", "PL"),
-        ("Hungary", "HU"), ("Netherlands", "NL"), ("Belgium", "BE"), ("Ireland", "IE"),
-        ("Luxembourg", "LU"), ("Malta", "MT"),
-    ]
-    years = list(range(2015, 2024))
-    rows = []
-    for idx, (c, code) in enumerate(countries):
-        base = 52 - idx * 1.6
-        for y_i, y in enumerate(years):
-            val = max(4.5, round(base + y_i * rng.uniform(0.5, 1.4), 2))
-            rows.append({
-                "country": c, "geo_code": code, "year": y,
-                "renewable_share_pct": val, "data_flag": "Demo", "is_aggregate": False,
-            })
-    for y_i, y in enumerate(years):
-        rows.append({
-            "country": "European Union - 27 countries (from 2020)",
-            "geo_code": "EU27_2020", "year": y,
-            "renewable_share_pct": round(17.8 + y_i * 0.75, 2),
-            "data_flag": "Demo", "is_aggregate": True,
-        })
-    return pd.DataFrame(rows), True
+    # Real Eurostat data only: the processed file, or the raw CSV in the repo cleaned
+    # with the project pipeline. Never fall back to generated values.
+    df_loaded = clean_eurostat_renewables.load()
+    if "is_aggregate" not in df_loaded.columns:
+        df_loaded["is_aggregate"] = df_loaded["geo_code"].astype(str).str.startswith(("EU", "EA"))
+    return df_loaded
 
 def fallback_enrich(raw_df):
     non_agg = raw_df[~raw_df["is_aggregate"]].copy()
@@ -341,7 +295,7 @@ def fallback_enrich(raw_df):
     non_agg["vs_eu_avg"] = non_agg["renewable_share_pct"] - non_agg["eu_avg_pct"]
     return non_agg, min_yr
 
-df, IS_DEMO = load_dataset()
+df = load_dataset()
 if hasattr(cmap, "enrich_country_metrics"):
     try:
         d_all, MIN_YEAR = cmap.enrich_country_metrics(df)
@@ -883,8 +837,6 @@ tabs = pn.Tabs(
 )
 
 main = []
-if IS_DEMO:
-    main.append(pn.pane.Alert("Showing **demo data** because `renewable_energy_shares.csv` was not found in the project folder.", alert_type="warning", sizing_mode="stretch_width"))
 main.append(tabs)
 
 preset_grid = pn.GridBox(btn_top5, btn_movers, btn_v4, btn_clear, ncols=2, width=SIDEBAR_W, styles={"gap": "6px", "margin-top": "4px"})

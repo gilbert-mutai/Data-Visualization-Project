@@ -23,9 +23,8 @@ OUTPUT_PATH = REPO_ROOT / "data" / "processed" / "renewable_energy_shares.parque
 FLAG_LABELS = {"p": "provisional", "e": "estimated", "b": "break in series"}
 
 
-def cleaning_of_dataset():
-    df = pd.read_csv(RAW_PATH)
-
+def clean(df):
+    """Return the cleaned dataset from the raw Eurostat table."""
     columns_to_keep = {
         'Geopolitical entity (reporting)': 'country',
         'geo': 'geo_code',
@@ -51,7 +50,19 @@ def cleaning_of_dataset():
     df_clean['country'] = df_clean['country'].str.strip()
 
     # Sorting of data
-    df_clean = df_clean.sort_values(by=['country','year']).reset_index(drop=True)
+    return df_clean.sort_values(by=['country','year']).reset_index(drop=True)
+
+
+def load():
+    """Processed dataset if it exists, otherwise cleaned from the raw CSV in the repo
+    (e.g. on Streamlit Cloud, where data/processed/ is not available)."""
+    if OUTPUT_PATH.is_file():
+        return pd.read_parquet(OUTPUT_PATH)
+    return clean(pd.read_csv(RAW_PATH))
+
+
+def cleaning_of_dataset():
+    df_clean = clean(pd.read_csv(RAW_PATH))
 
     # Saving processed Dataset
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)

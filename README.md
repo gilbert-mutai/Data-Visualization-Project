@@ -74,14 +74,22 @@ Raw data is excluded from Git. Every dataset is automatically downloaded via scr
 - **Validation:** 14 automated data quality checks are implemented (e.g., verifying zero duplicate timestamps and plausible annual consumption bounds per country).
 
 *For technical details, see [docs/data_preparation.md](docs/data_preparation.md) and [docs/data_contract.md](docs/data_contract.md).*
-##############################################################################################################################################################################################################################
-Running the Dashboard
-Launch the interactive local Panel server:
 
-Bash
-panel serve dashboard/app.py --show
-OR 
-https://eu-energyproject-mebwy7ytsuxk4jjtia9rca.streamlit.app/ FOLLOW LINK
+---
+
+## Setup and Running
+```bash
+python -m venv venv
+venv\Scripts\activate                   # macOS / Linux: source venv/bin/activate
+pip install -r requirements.txt
+
+streamlit run dashboard/app.py          # Streamlit dashboard
+panel serve dashboard/Panel.py --show   # Panel version of the dashboard
+pytest tests/                           # data checks
+```
+
+Online version: https://eu-energyproject-mebwy7ytsuxk4jjtia9rca.streamlit.app/
+
 ---
 
 ## Project Structure
@@ -90,22 +98,11 @@ data/
   raw/            Original downloads, never modified (git-ignored)
   interim/        Intermediate processed outputs
   processed/      Final, dashboard-ready data (Parquet format)
-notebooks/        Exploratory data analysis and prototyping
 src/
   data/           Data ingestion and cleaning scripts
   features/       Feature engineering and derived variables
-  viz/            Chart generation functions and theme definitions
-dashboard/        Panel application script
-docs/             Comprehensive documentation (data contract, prep, chart guide, styling, insights)
-reports/figures/  Exported report figures
-tests/            Automated data validation checks and chart unit tests
-
-
-##############################################################################################################################################################################################################################
-python -m venv venv
-venv\Scripts\activate            # macOS / Linux: source venv/bin/activate
-pip install -r requirements.txt
-
-Running the Dashboard
-Launch the interactive local Panel server:
-
+  viz/            Chart modules (Plotly)
+dashboard/        Streamlit app (app.py) and Panel version (Panel.py)
+docs/             Documentation (data contract, preparation, insights)
+tests/            Automated data validation checks
+```

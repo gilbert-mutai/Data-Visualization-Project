@@ -1,4 +1,13 @@
+# Dashboard and charts
+streamlit
 panel
 plotly
+
+# Data
 pandas
 numpy
+pyarrow
+requests
+
+# Tests
+pytest

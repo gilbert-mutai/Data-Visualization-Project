@@ -247,21 +247,14 @@ except Exception as exc:
     st.stop()
 
 # ----------------------------------------------------------------------------
-# Data Loading & Auto-Generation for Cloud Deployment (2016–2025)
+# Data Loading (Eurostat nrg_ind_ren, 2016–2025)
 # ----------------------------------------------------------------------------
 REQUIRED_COLS = {"country", "geo_code", "year", "renewable_share_pct"}
 TARGET_LAST_YEAR = 2025
 
-def find_csvs():
-    search_dirs = [HERE, PROJECT_ROOT, os.path.join(PROJECT_ROOT, "data"), os.path.join(PROJECT_ROOT, "data", "raw"), os.path.join(PROJECT_ROOT, "data", "processed")]
-    found = []
-    for d in search_dirs:
-        if not os.path.isdir(d):
-            continue
-        for fname in os.listdir(d):
-            if fname.lower().endswith(".csv") and "renewable" in fname.lower():
-                found.append(os.path.join(d, fname))
-    return found
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+from src.data import clean_eurostat_renewables  # noqa: E402
 
 def _normalize(frame):
     frame = frame.copy()
@@ -269,67 +262,19 @@ def _normalize(frame):
         frame["is_aggregate"] = frame["geo_code"].astype(str).str.startswith(("EU", "EA"))
     return frame
 
-def _span(frame):
-    yrs = pd.to_numeric(frame["year"], errors="coerce").dropna()
-    return (int(yrs.max()) if len(yrs) else 0, len(frame))
-
 @st.cache_data
 def load_dataset():
-    # Collect every candidate dataset and keep the one that reaches the latest year,
-    # so an older CSV (e.g. ending in 2023) can never shadow a newer one.
-    candidates = []
-    if hasattr(cmap, "load_data"):
-        try:
-            frame = cmap.load_data(extra_roots=[HERE, PROJECT_ROOT, os.path.join(PROJECT_ROOT, "data")])
-            if REQUIRED_COLS.issubset(frame.columns):
-                candidates.append(_normalize(frame))
-        except Exception:
-            pass
-    for path in find_csvs():
-        try:
-            frame = pd.read_csv(path)
-            if REQUIRED_COLS.issubset(frame.columns):
-                candidates.append(_normalize(frame))
-        except Exception:
-            continue
-    if candidates:
-        return max(candidates, key=_span), False
-
-    # Fallback Data Generator up to 37 nations and 2016-2025
-    rng = np.random.default_rng(7)
-    countries = [
-        ("Sweden", "SE"), ("Finland", "FI"), ("Latvia", "LV"), ("Denmark", "DK"),
-        ("Austria", "AT"), ("Portugal", "PT"), ("Croatia", "HR"), ("Lithuania", "LT"),
-        ("Estonia", "EE"), ("Romania", "RO"), ("Spain", "ES"), ("Greece", "EL"),
-        ("Slovenia", "SI"), ("Bulgaria", "BG"), ("Germany", "DE"), ("Italy", "IT"),
-        ("France", "FR"), ("Slovakia", "SK"), ("Czechia", "CZ"), ("Poland", "PL"),
-        ("Hungary", "HU"), ("Netherlands", "NL"), ("Belgium", "BE"), ("Ireland", "IE"),
-        ("Luxembourg", "LU"), ("Malta", "MT"), ("Norway", "NO"), ("Iceland", "IS"),
-        ("Switzerland", "CH"), ("Montenegro", "ME"), ("Serbia", "RS"), ("Albania", "AL"),
-        ("North Macedonia", "MK"), ("Bosnia and Herzegovina", "BA"), ("Turkey", "TR"),
-        ("United Kingdom", "UK"), ("Cyprus", "CY")
-    ]
-    years = list(range(2016, TARGET_LAST_YEAR + 1))
-    rows = []
-    for idx, (c, code) in enumerate(countries):
-        base = 52 - (idx * 1.0)
-        for y_i, y in enumerate(years):
-            val = max(4.5, round(base + y_i * rng.uniform(0.5, 1.4), 2))
-            rows.append({"country": c, "geo_code": code, "year": y, "renewable_share_pct": val, "data_flag": "Demo", "is_aggregate": False})
-
-    for y_i, y in enumerate(years):
-        rows.append({"country": "European Union - 27 countries (from 2020)", "geo_code": "EU27_2020", "year": y, "renewable_share_pct": round(17.8 + y_i * 0.75, 2), "data_flag": "Demo", "is_aggregate": True})
-
-    df_generated = pd.DataFrame(rows)
-    proc_dir = os.path.join(PROJECT_ROOT, "data", "processed")
-    out_csv = os.path.join(proc_dir, "renewable_energy_shares.csv")
+    # Real Eurostat data only: the processed file, or the raw CSV in the repo cleaned
+    # with the project pipeline. Never fall back to generated values.
     try:
-        os.makedirs(proc_dir, exist_ok=True)
-        df_generated.to_csv(out_csv, index=False)
-    except Exception:
-        pass
-
-    return df_generated, True
+        frame = clean_eurostat_renewables.load()
+    except FileNotFoundError:
+        st.error("Eurostat data not found. Expected `data/raw/eurostat/nrg_ind_ren$defaultview_linear_2_0.csv`.")
+        st.stop()
+    if not REQUIRED_COLS.issubset(frame.columns):
+        st.error(f"Eurostat data is missing columns: {sorted(REQUIRED_COLS - set(frame.columns))}")
+        st.stop()
+    return _normalize(frame)
 
 def fallback_enrich(raw_df):
     non_agg = raw_df[~raw_df["is_aggregate"]].copy().sort_values(["country", "year"])
@@ -343,7 +288,7 @@ def fallback_enrich(raw_df):
     non_agg["vs_eu_avg"] = non_agg["renewable_share_pct"] - non_agg["eu_avg_pct"]
     return non_agg, min_yr
 
-df, IS_DEMO = load_dataset()
+df = load_dataset()
 if hasattr(cmap, "enrich_country_metrics"):
     try:
         d_all, MIN_YEAR = cmap.enrich_country_metrics(df)
@@ -813,9 +758,7 @@ with st.sidebar:
 # ----------------------------------------------------------------------------
 # Main Content (title lives in the top bar, see CSS)
 # ----------------------------------------------------------------------------
-if IS_DEMO:
-    st.warning("Showing **demo data** because `renewable_energy_shares.csv` was not found in the project folder.")
-elif DATA_YEARS[-1] < TARGET_LAST_YEAR:
+if DATA_YEARS[-1] < TARGET_LAST_YEAR:
     st.warning(f"The loaded dataset only contains data up to **{DATA_YEARS[-1]}**. Add a CSV that includes {DATA_YEARS[-1] + 1}–{TARGET_LAST_YEAR} to see those years.")
 
 NAV_ITEMS = ["Overview", "Trends", "Movers", "Spread & Outliers", "Matrix", "Data"]
